@@ -7,6 +7,7 @@ from rsa_utils import (
     encrypt_with_public_key,
     decrypt_with_private_key,
 )
+from signature_utils import sign_message, verify_signature
 
 
 def main() -> None:
@@ -19,12 +20,17 @@ def main() -> None:
     loaded_public_key = load_public_key("keys/alice_public.pem")
 
     message = b"Hello, this is a secret AES key."
+
     ciphertext = encrypt_with_public_key(loaded_public_key, message)
     decrypted_message = decrypt_with_private_key(loaded_private_key, ciphertext)
+
+    signature = sign_message(loaded_private_key, message)
+    is_signature_valid = verify_signature(loaded_public_key, message, signature)
 
     print("Original message:", message)
     print("Decrypted message:", decrypted_message)
     print("RSA test successful:", message == decrypted_message)
+    print("Signature valid:", is_signature_valid)
 
 
 if __name__ == "__main__":
