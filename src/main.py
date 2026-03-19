@@ -1,3 +1,5 @@
+import os
+
 from rsa_utils import (
     generate_rsa_key_pair,
     save_private_key,
@@ -19,17 +21,17 @@ def main() -> None:
     loaded_private_key = load_private_key("keys/alice_private.pem")
     loaded_public_key = load_public_key("keys/alice_public.pem")
 
-    message = b"Hello, this is a secret AES key."
+    aes_key = os.urandom(32)
 
-    ciphertext = encrypt_with_public_key(loaded_public_key, message)
-    decrypted_message = decrypt_with_private_key(loaded_private_key, ciphertext)
+    encrypted_aes_key = encrypt_with_public_key(loaded_public_key, aes_key)
+    decrypted_aes_key = decrypt_with_private_key(loaded_private_key, encrypted_aes_key)
 
-    signature = sign_message(loaded_private_key, message)
-    is_signature_valid = verify_signature(loaded_public_key, message, signature)
+    signature = sign_message(loaded_private_key, aes_key)
+    is_signature_valid = verify_signature(loaded_public_key, aes_key, signature)
 
-    print("Original message:", message)
-    print("Decrypted message:", decrypted_message)
-    print("RSA test successful:", message == decrypted_message)
+    print("Original AES key:", aes_key)
+    print("Decrypted AES key:", decrypted_aes_key)
+    print("RSA key exchange successful:", aes_key == decrypted_aes_key)
     print("Signature valid:", is_signature_valid)
 
 

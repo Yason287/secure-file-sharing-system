@@ -1,3 +1,8 @@
+# This module handles RSA operations:
+# - Key generation and storage
+# - Encryption/decryption of AES session keys
+# - Used as part of hybrid cryptography with AES
+
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization, hashes
@@ -81,3 +86,57 @@ def decrypt_with_private_key(private_key: rsa.RSAPrivateKey, ciphertext: bytes) 
         )
     )
     return plaintext
+
+
+def encrypt_aes_key(public_key: rsa.RSAPublicKey, aes_key: bytes) -> bytes:
+    """
+    Encrypts an AES session key using the receiver's RSA public key.
+
+    This function is part of the hybrid cryptography workflow:
+    - AES is used to encrypt large files (fast and efficient)
+    - RSA is used only to securely transmit the AES key
+
+    Why do we do this?
+    RSA is slow and has size limitations, so instead of encrypting the entire file
+    with RSA, we encrypt only the AES key. The AES key is then used to encrypt
+    the actual file.
+
+    Parameters:
+    - public_key (rsa.RSAPublicKey):
+        The receiver's RSA public key. Anyone can use this key to encrypt data,
+        but only the receiver can decrypt it using their private key.
+
+    - aes_key (bytes):
+        The symmetric AES key (typically 32 bytes for AES-256) that will be used
+        to encrypt the file.
+
+    Returns:
+    - bytes:
+        The AES key encrypted with RSA. This encrypted key can be safely transmitted
+        over an insecure channel.
+    """
+    return encrypt_with_public_key(public_key, aes_key)
+
+
+def decrypt_aes_key(private_key: rsa.RSAPrivateKey, encrypted_aes_key: bytes) -> bytes:
+    """
+    Decrypts an AES session key using the receiver's RSA private key.
+
+    This is the reverse operation of encrypt_aes_key(). After receiving the encrypted
+    AES key, the receiver uses their private key to recover the original AES key.
+
+    Only the owner of the private key can perform this operation, which ensures
+    confidentiality of the AES key.
+
+    Parameters:
+    - private_key (rsa.RSAPrivateKey):
+        The receiver's RSA private key. This key must be kept secret.
+
+    - encrypted_aes_key (bytes):
+        The AES key that was previously encrypted using the receiver's public key.
+
+    Returns:
+    - bytes:
+        The original decrypted AES key, which can now be used to decrypt the file.
+    """
+    return decrypt_with_private_key(private_key, encrypted_aes_key)
