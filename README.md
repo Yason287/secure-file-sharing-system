@@ -1,55 +1,69 @@
 # secure-file-sharing-system
 
-INSE 6110 course project: Secure File Sharing System with RSA authentication, AES encryption, and integrity verification.
+INSE 6110 course project: Secure File Sharing System using hybrid cryptography (RSA + AES + Digital Signatures).
 
-## 🔐 RSA Module – Key Exchange and Authentication
+---
 
-This project implements a secure file sharing system using hybrid cryptography, combining RSA (asymmetric encryption) and AES (symmetric encryption).
+## 🔐 Overview
 
-The RSA module is responsible for:
+This project implements a secure file sharing system using hybrid cryptography:
 
-- Generating RSA key pairs (public/private keys)
-- Securely exchanging AES session keys
-- Providing authentication using digital signatures
+- **RSA** (asymmetric encryption) for secure key exchange and authentication  
+- **AES-GCM** (symmetric encryption) for efficient and secure file encryption  
+- **Digital signatures** for authenticity and integrity  
 
-### 🔑 Key Exchange (RSA)
+The system ensures:
+- Confidentiality
+- Integrity
+- Authentication
 
-RSA is used to securely transmit the AES session key between users.
+---
 
-Instead of encrypting large files directly with RSA (which is inefficient and size-limited), the system:
+## 🔑 Hybrid Cryptography Workflow
 
-1. Generates a random AES key (e.g., 256-bit)
-2. Encrypts the AES key using the receiver’s RSA public key
-3. Sends the encrypted AES key along with the encrypted file
-4. The receiver decrypts the AES key using their RSA private key
+1. Generate a random AES-256 key  
+2. Encrypt the file using AES-GCM  
+3. Encrypt the AES key using the receiver’s RSA public key  
+4. Sign the AES key using the sender’s RSA private key  
+5. Send:
+   - Encrypted file  
+   - Encrypted AES key  
+   - Signature  
 
-### ✍️ Authentication (Digital Signatures)
+### Receiver side:
+- Decrypt AES key using RSA private key  
+- Verify signature using sender’s public key  
+- Decrypt file using AES  
 
-To guarantee authenticity and integrity, the sender signs data using their RSA private key.
+---
 
-- The sender creates a digital signature of the message or AES key
-- The receiver verifies the signature using the sender’s public key
+## 🔐 RSA Module
 
-This ensures that:
-- The message was not modified (integrity)
-- The sender is authenticated (authenticity)
+Responsible for:
+- Generating RSA key pairs (2048-bit)
+- Encrypting/decrypting AES keys (OAEP padding)
+- Digital signatures (authentication)
 
-### 🔄 Hybrid Cryptography Workflow
+---
 
-1. Generate AES key  
-2. Encrypt file using AES  
-3. Encrypt AES key using RSA (receiver’s public key)  
-4. Sign the AES key or file using RSA (sender’s private key)  
-5. Transmit encrypted file + encrypted AES key + signature  
-6. Receiver:
-   - Decrypts AES key using RSA private key  
-   - Verifies signature using sender’s public key  
-   - Decrypts file using AES  
+## 🔒 AES Module
 
-### ⚙️ Technologies Used
+- AES-256 encryption using **AES-GCM**
+- Provides:
+  - Confidentiality (encryption)
+  - Integrity (tampering detection)
 
-- Python  
-- cryptography library  
-- RSA (2048-bit, OAEP padding)  
-- AES (to be integrated)  
-- SHA-256 (for hashing and signatures)
+---
+
+## ✍️ Digital Signatures
+
+- Sender signs the AES session key
+- Receiver verifies the signature
+
+Ensures:
+- Data integrity
+- Sender authenticity
+
+---
+
+## 📁 Project Structure
