@@ -1,38 +1,47 @@
-import os
-
 from rsa_utils import (
     generate_rsa_key_pair,
     save_private_key,
     save_public_key,
     load_private_key,
     load_public_key,
-    encrypt_with_public_key,
-    decrypt_with_private_key,
 )
-from signature_utils import sign_message, verify_signature
+from file_transfer import secure_file_for_transfer, receive_secure_file
 
 
 def main() -> None:
-    private_key, public_key = generate_rsa_key_pair()
+    # Alice = sender
+    alice_private_key, alice_public_key = generate_rsa_key_pair()
+    save_private_key(alice_private_key, "keys/alice_private.pem")
+    save_public_key(alice_public_key, "keys/alice_public.pem")
 
-    save_private_key(private_key, "keys/alice_private.pem")
-    save_public_key(public_key, "keys/alice_public.pem")
+    # Bob = receiver
+    bob_private_key, bob_public_key = generate_rsa_key_pair()
+    save_private_key(bob_private_key, "keys/bob_private.pem")
+    save_public_key(bob_public_key, "keys/bob_public.pem")
 
-    loaded_private_key = load_private_key("keys/alice_private.pem")
-    loaded_public_key = load_public_key("keys/alice_public.pem")
+    # Load keys back from files
+    loaded_alice_private = load_private_key("keys/alice_private.pem")
+    loaded_alice_public = load_public_key("keys/alice_public.pem")
+    loaded_bob_private = load_private_key("keys/bob_private.pem")
+    loaded_bob_public = load_public_key("keys/bob_public.pem")
 
-    aes_key = os.urandom(32)
+    file_data = b"This is a confidential file."
 
-    encrypted_aes_key = encrypt_with_public_key(loaded_public_key, aes_key)
-    decrypted_aes_key = decrypt_with_private_key(loaded_private_key, encrypted_aes_key)
+    package = secure_file_for_transfer(
+        file_data=file_data,
+        sender_private_key=loaded_alice_private,
+        receiver_public_key=loaded_bob_public,
+    )
 
-    signature = sign_message(loaded_private_key, aes_key)
-    is_signature_valid = verify_signature(loaded_public_key, aes_key, signature)
+    decrypted_file = receive_secure_file(
+        package=package,
+        receiver_private_key=loaded_bob_private,
+        sender_public_key=loaded_alice_public,
+    )
 
-    print("Original AES key:", aes_key)
-    print("Decrypted AES key:", decrypted_aes_key)
-    print("RSA key exchange successful:", aes_key == decrypted_aes_key)
-    print("Signature valid:", is_signature_valid)
+    print("Original file:", file_data)
+    print("Decrypted file:", decrypted_file)
+    print("Transfer successful:", file_data == decrypted_file)
 
 
 if __name__ == "__main__":
