@@ -16,8 +16,13 @@ def main() -> None:
     Path("output").mkdir(exist_ok=True)
     Path("keys").mkdir(exist_ok=True)
 
+    # ==== TEST CASE 1: TEXT FILE ====
     input_file_path = Path("input/sample.txt")
     output_file_path = Path("output/decrypted_sample.txt")
+
+    # ==== TEST CASE 2: JSON FILE ====
+    # input_file_path = Path("input/data.json")
+    # output_file_path = Path("output/decrypted_data.json")
 
     # Create a sample input file if it does not exist yet
     if not input_file_path.exists():

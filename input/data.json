@@ -1,0 +1,5 @@
+{
+  "user": "Alice",
+  "role": "sender",
+  "message": "This is a secure JSON file"
+}
