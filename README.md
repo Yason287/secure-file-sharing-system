@@ -24,15 +24,18 @@ The system ensures:
 1. Generate a random AES-256 key  
 2. Encrypt the file using AES-GCM  
 3. Encrypt the AES key using the receiver’s RSA public key  
-4. Sign the AES key using the sender’s RSA private key  
+4. Create a digital signature over:
+   - nonce  
+   - ciphertext  
+   - encrypted AES key  
 5. Send:
-   - Encrypted file  
+   - Encrypted file (ciphertext + nonce)  
    - Encrypted AES key  
    - Signature  
 
 ### Receiver side:
+- Verify the signature using the sender’s public key  
 - Decrypt AES key using RSA private key  
-- Verify signature using sender’s public key  
 - Decrypt file using AES  
 
 ---
@@ -42,7 +45,7 @@ The system ensures:
 Responsible for:
 - Generating RSA key pairs (2048-bit)
 - Encrypting/decrypting AES keys (OAEP padding)
-- Digital signatures (authentication)
+- Digital signatures (RSA-PSS with SHA-256)
 
 ---
 
@@ -57,8 +60,9 @@ Responsible for:
 
 ## ✍️ Digital Signatures
 
-- Sender signs the AES session key
-- Receiver verifies the signature
+- The sender signs the full encrypted package:
+  - nonce + ciphertext + encrypted AES key  
+- The receiver verifies the signature before decryption  
 
 Ensures:
 - Data integrity
@@ -66,4 +70,26 @@ Ensures:
 
 ---
 
-## 📁 Project Structure
+## 🧪 Testing
+
+The system was tested with multiple file types:
+- Text file (`sample.txt`)
+- JSON file (`data.json`)
+
+Results:
+- Decryption output matches original input  
+- Tampering detection successfully rejects modified data  
+
+---
+
+## ▶️ How to Run
+
+1. Place a file inside the `input/` folder (e.g., `sample.txt` or `data.json`)  
+
+2. Select the test case in `main.py`:
+```python
+# ==== TEST CASE 1: TEXT FILE ====
+input_file_path = Path("input/sample.txt")
+
+# ==== TEST CASE 2: JSON FILE ====
+# input_file_path = Path("input/data.json")
