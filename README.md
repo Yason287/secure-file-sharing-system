@@ -2,9 +2,9 @@
 
 INSE 6110 course project: Secure File Sharing System using hybrid cryptography (RSA + AES + Digital Signatures).
 
----
 
-## 🔐 Overview
+
+##  Overview
 
 This project implements a secure file sharing system using hybrid cryptography:
 
@@ -17,9 +17,9 @@ The system ensures:
 - Integrity
 - Authentication
 
----
 
-## 🔑 Hybrid Cryptography Workflow
+
+##  Hybrid Cryptography Workflow
 
 1. Generate a random AES-256 key  
 2. Encrypt the file using AES-GCM  
@@ -38,27 +38,27 @@ The system ensures:
 - Decrypt AES key using RSA private key  
 - Decrypt file using AES  
 
----
 
-## 🔐 RSA Module
+
+##  RSA Module
 
 Responsible for:
 - Generating RSA key pairs (2048-bit)
 - Encrypting/decrypting AES keys (OAEP padding)
 - Digital signatures (RSA-PSS with SHA-256)
 
----
 
-## 🔒 AES Module
+
+##  AES Module
 
 - AES-256 encryption using **AES-GCM**
 - Provides:
   - Confidentiality (encryption)
   - Integrity (tampering detection)
 
----
 
-## ✍️ Digital Signatures
+
+##  Digital Signatures
 
 - The sender signs the full encrypted package:
   - nonce + ciphertext + encrypted AES key  
@@ -68,9 +68,9 @@ Ensures:
 - Data integrity
 - Sender authenticity
 
----
 
-## 🧪 Testing
+
+##  Testing
 
 The system was tested with multiple file types:
 - Text file (`sample.txt`)
@@ -80,9 +80,9 @@ Results:
 - Decryption output matches original input  
 - Tampering detection successfully rejects modified data  
 
----
 
-## ▶️ How to Run
+
+##  How to Run
 
 1. Place a file inside the `input/` folder (e.g., `sample.txt` or `data.json`)  
 
