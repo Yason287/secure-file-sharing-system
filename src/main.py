@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from rsa_utils import (
     generate_rsa_key_pair,
     save_private_key,
@@ -9,6 +11,26 @@ from file_transfer import secure_file_for_transfer, receive_secure_file
 
 
 def main() -> None:
+    # Ensure folders exist
+    Path("input").mkdir(exist_ok=True)
+    Path("output").mkdir(exist_ok=True)
+    Path("keys").mkdir(exist_ok=True)
+
+    # ==== TEST CASE 1: TEXT FILE ====
+    input_file_path = Path("input/sample.txt")
+    output_file_path = Path("output/decrypted_sample.txt")
+
+    # ==== TEST CASE 2: JSON FILE ====
+    # input_file_path = Path("input/data.json")
+    # output_file_path = Path("output/decrypted_data.json")
+
+    # Create a sample input file if it does not exist yet
+    if not input_file_path.exists():
+        input_file_path.write_text(
+            "This is a test file for secure transfer.",
+            encoding="utf-8"
+        )
+
     # Alice = sender
     alice_private_key, alice_public_key = generate_rsa_key_pair()
     save_private_key(alice_private_key, "keys/alice_private.pem")
@@ -25,10 +47,12 @@ def main() -> None:
     loaded_bob_private = load_private_key("keys/bob_private.pem")
     loaded_bob_public = load_public_key("keys/bob_public.pem")
 
-    file_data = b"This is a confidential file."
+    # Read real file data from input folder
+    file_data = input_file_path.read_bytes()
 
     print("\n=== Secure File Sharing Demo ===")
-    print("Original file:", file_data)
+    print("Input file:", input_file_path)
+    print("Original file data:", file_data)
 
     # Alice secures the file for Bob
     package = secure_file_for_transfer(
@@ -44,7 +68,11 @@ def main() -> None:
         sender_public_key=loaded_alice_public,
     )
 
-    print("Decrypted file:", decrypted_file)
+    # Save decrypted result to output folder
+    output_file_path.write_bytes(decrypted_file)
+
+    print("Output file:", output_file_path)
+    print("Decrypted file data:", decrypted_file)
     print("Transfer successful:", file_data == decrypted_file)
 
     # Tampering test: modify ciphertext after signing
