@@ -1,4 +1,4 @@
-from aes_utils import generate_aes_key, encrypt_file_bytes, decrypt_file_bytes
+from aes_utils import encrypt_file_bytes, decrypt_file_bytes
 from dh_utils import (
     generate_dh_key_pair, 
     serialize_public_key,
