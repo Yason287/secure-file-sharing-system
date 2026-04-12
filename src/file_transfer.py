@@ -1,101 +1,81 @@
 from aes_utils import generate_aes_key, encrypt_file_bytes, decrypt_file_bytes
-from rsa_utils import encrypt_aes_key, decrypt_aes_key
+from dh_utils import (
+    generate_dh_key_pair, 
+    serialize_public_key,
+    deserialize_public_key,
+    derive_shared_secret,
+)
 from signature_utils import sign_message, verify_signature
 
 
-def secure_file_for_transfer(
+def secure_file_for_transfer_dh(
     file_data: bytes,
-    sender_private_key,
-    receiver_public_key
+    sender_private_key,  # RSA private key for signing
+    receiver_public_key_bytes,  # DH public key from receiver (bytes)
 ) -> dict:
     """
-    Prepares a file for secure transfer using hybrid cryptography.
-
+    Prepares a file for secure transfer using DH + RSA hybrid cryptography.
+    
     Security flow:
-    1. Generate a random AES session key.
-    2. Encrypt the file data using AES-GCM.
-    3. Encrypt the AES key using the receiver's RSA public key.
-    4. Build the package contents.
-    5. Sign the full package using the sender's RSA private key.
-
-    Why sign the full package?
-    This protects all critical transmitted values:
-    - nonce
-    - ciphertext
-    - encrypted AES key
-
-    If any of these values are modified, signature verification will fail.
-
-    Parameters:
-    - file_data (bytes): raw file content
-    - sender_private_key: sender's RSA private key
-    - receiver_public_key: receiver's RSA public key
-
-    Returns:
-    - dict: secure package containing encrypted file data and signature
+    1. Sender generates ephemeral DH key pair
+    2. Derive shared AES key using receiver's DH public key
+    3. Encrypt file using AES-GCM with derived key
+    4. Sign the full package using sender's RSA private key
+    
+    Note: AES key is NOT sent - both parties derive it independently.
     """
-    aes_key = generate_aes_key()
+    # Generate ephemeral DH key pair for this session
+    sender_dh_private, sender_dh_public, dh_params = generate_dh_key_pair()
 
-    # Encrypt file with AES-GCM
+    receiver_public_key = deserialize_public_key(receiver_public_key_bytes)
+    
+    # Derive shared AES key using receiver's DH public key
+    aes_key = derive_shared_secret(sender_dh_private, receiver_public_key)
+    
+    # Encrypt file with AES-GCM using derived key
     nonce, ciphertext = encrypt_file_bytes(file_data, aes_key)
-
-    # Encrypt AES key with receiver's RSA public key
-    encrypted_aes_key = encrypt_aes_key(receiver_public_key, aes_key)
-
-    # Build package bytes to sign
-    package_to_sign = nonce + ciphertext + encrypted_aes_key
-
-    # Sign the full package
+    
+    # Serialize sender's DH public key to send to receiver
+    sender_dh_public_bytes = serialize_public_key(sender_dh_public)
+    
+    # Build package bytes to sign (everything except signature)
+    package_to_sign = nonce + ciphertext + sender_dh_public_bytes
+    
+    # Sign with sender's RSA private key
     signature = sign_message(sender_private_key, package_to_sign)
-
+    
     return {
         "nonce": nonce,
         "ciphertext": ciphertext,
-        "encrypted_aes_key": encrypted_aes_key,
+        "sender_dh_public_key": sender_dh_public_bytes,
         "signature": signature,
     }
 
 
-def receive_secure_file(
+def receive_secure_file_dh(
     package: dict,
-    receiver_private_key,
-    sender_public_key
+    receiver_dh_private_key,  # Receiver's DH private key
+    sender_public_key,  # Sender's RSA public key for verification
 ) -> bytes:
     """
-    Receives and decrypts a secure file package.
-
-    Security flow:
-    1. Extract package components.
-    2. Rebuild the signed package.
-    3. Verify sender's signature on the full package.
-    4. Decrypt AES key using receiver's RSA private key.
-    5. Decrypt file using recovered AES key.
-
-    Parameters:
-    - package (dict): package returned by secure_file_for_transfer()
-    - receiver_private_key: receiver's RSA private key
-    - sender_public_key: sender's RSA public key
-
-    Returns:
-    - bytes: original decrypted file contents
-
-    Raises:
-    - ValueError: if signature verification fails
+    Receives and decrypts a secure file package using DH key exchange.
     """
     nonce = package["nonce"]
     ciphertext = package["ciphertext"]
-    encrypted_aes_key = package["encrypted_aes_key"]
+    sender_dh_public_bytes = package["sender_dh_public_key"]
     signature = package["signature"]
-
-    # Rebuild the exact package that was signed
-    package_to_verify = nonce + ciphertext + encrypted_aes_key
-
-    # Verify sender's signature before decrypting
+    
+    # Rebuild the package that was signed
+    package_to_verify = nonce + ciphertext + sender_dh_public_bytes
+    
+    # Verify sender's RSA signature
     if not verify_signature(sender_public_key, package_to_verify, signature):
         raise ValueError("Signature verification failed.")
-
-    # Recover AES key using receiver's private key
-    aes_key = decrypt_aes_key(receiver_private_key, encrypted_aes_key)
-
-    # Decrypt file using the recovered AES key
+    
+    sender_dh_public = deserialize_public_key(sender_dh_public_bytes)
+    
+    # Derive the same AES key using receiver's DH private key and sender's DH public key
+    aes_key = derive_shared_secret(receiver_dh_private_key, sender_dh_public)
+    
+    # Decrypt file
     return decrypt_file_bytes(nonce, ciphertext, aes_key)
