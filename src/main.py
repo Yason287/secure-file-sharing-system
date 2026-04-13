@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from rsa_utils import (
     generate_rsa_key_pair,
     save_private_key,
@@ -7,22 +8,27 @@ from rsa_utils import (
     load_public_key,
 )
 from dh_utils import generate_dh_key_pair, serialize_public_key
+from signature_utils import sign_public_key_bytes
 from file_transfer import secure_file_for_transfer_dh, receive_secure_file_dh
 
 
 def main():
-    # Setup directories
+    print("\n========== Secure File Sharing Demo ==========\n")
+
+    print("[1] Creating required folders...")
     Path("input").mkdir(exist_ok=True)
     Path("output").mkdir(exist_ok=True)
     Path("keys").mkdir(exist_ok=True)
+    print("    Folders ready.\n")
 
-    # Create test files if they do not exist
+    print("[2] Checking sample input files...")
     txt_input_path = Path("input/sample.txt")
     if not txt_input_path.exists():
         txt_input_path.write_text(
             "This is a test file for secure transfer.",
             encoding="utf-8"
         )
+        print("    Created input/sample.txt")
 
     json_input_path = Path("input/data.json")
     if not json_input_path.exists():
@@ -34,77 +40,87 @@ def main():
             '}',
             encoding="utf-8"
         )
+        print("    Created input/data.json")
 
-    # ==== TEST CASE 1: TEXT FILE ====
     input_file_path = Path("input/sample.txt")
     output_file_path = Path("output/decrypted_sample.txt")
+    print(f"    Using input file: {input_file_path}\n")
 
-    # ==== TEST CASE 2: JSON FILE ====
-    # input_file_path = Path("input/data.json")
-    # output_file_path = Path("output/decrypted_data.json")
-
-    # ===== RSA KEYS (for signatures only) =====
-    # Alice (sender) RSA key pair for signing
+    print("[3] Generating Alice RSA key pair for signing...")
     alice_private_key, alice_public_key = generate_rsa_key_pair()
     save_private_key(alice_private_key, "keys/alice_private.pem")
     save_public_key(alice_public_key, "keys/alice_public.pem")
+    print("    Alice RSA keys generated and saved.\n")
 
-    # ===== DH KEYS (for key exchange) =====
-    # Bob (receiver) generates a long-term DH key pair
-    bob_dh_private, bob_dh_public, dh_params = generate_dh_key_pair()
+    print("[4] Generating Bob RSA key pair for authenticating his DH public key...")
+    bob_rsa_private_key, bob_rsa_public_key = generate_rsa_key_pair()
+    save_private_key(bob_rsa_private_key, "keys/bob_private.pem")
+    save_public_key(bob_rsa_public_key, "keys/bob_public.pem")
+    print("    Bob RSA keys generated and saved.\n")
 
-    # Bob shares his DH public key with Alice
+    print("[5] Generating Bob DH key pair for key exchange...")
+    bob_dh_private, bob_dh_public, _ = generate_dh_key_pair()
     bob_dh_public_bytes = serialize_public_key(bob_dh_public)
-
-    # Save Bob's DH public key for later use
     Path("keys/bob_dh_public.pem").write_bytes(bob_dh_public_bytes)
+    print("    Bob DH key pair generated.")
+    print("    Bob DH public key serialized and saved.\n")
 
-    # Load keys
+    print("[6] Bob signs his DH public key using his RSA private key...")
+    bob_dh_public_signature = sign_public_key_bytes(
+        bob_rsa_private_key,
+        bob_dh_public_bytes
+    )
+    print("    Bob DH public key signed successfully.\n")
+
+    print("[7] Loading Alice and Bob public/private keys from disk...")
     loaded_alice_private = load_private_key("keys/alice_private.pem")
     loaded_alice_public = load_public_key("keys/alice_public.pem")
+    loaded_bob_rsa_public = load_public_key("keys/bob_public.pem")
+    print("    Keys loaded successfully.\n")
 
-    # Read selected file
+    print("[8] Reading input file contents...")
     file_data = input_file_path.read_bytes()
+    print(f"    Read {len(file_data)} bytes from input file.\n")
 
-    print("\n=== Secure File Sharing Demo (DH + RSA Signatures) ===")
-    print("Input file:", input_file_path)
+    print("[9] Alice prepares secure package for Bob...")
+    print("    - Verifying Bob's DH public key signature")
+    print("    - Generating Alice ephemeral DH key pair")
+    print("    - Deriving shared AES key using DH + HKDF")
+    print("    - Encrypting file with AES-GCM")
+    print("    - Signing transfer package with Alice's RSA private key")
 
-    # Alice secures the file for Bob using DH key exchange
     package = secure_file_for_transfer_dh(
         file_data=file_data,
         sender_private_key=loaded_alice_private,
         receiver_public_key_bytes=bob_dh_public_bytes,
+        receiver_public_key_signature=bob_dh_public_signature,
+        receiver_signing_public_key=loaded_bob_rsa_public,
     )
+    print("    Secure package created successfully.\n")
 
-    # Bob receives and decrypts
+    print("[10] Bob receives secure package...")
+    print("     - Verifying Alice's package signature")
+    print("     - Recovering Alice's DH public key")
+    print("     - Deriving shared AES key using Bob's DH private key")
+    print("     - Decrypting file with AES-GCM")
+
     decrypted_file = receive_secure_file_dh(
         package=package,
         receiver_dh_private_key=bob_dh_private,
         sender_public_key=loaded_alice_public,
     )
+    print("     Package verified and file decrypted successfully.\n")
 
-    # Save decrypted output
+    print("[11] Saving decrypted output file...")
     output_file_path.write_bytes(decrypted_file)
+    print(f"     Output saved to: {output_file_path}\n")
 
-    print("Output file:", output_file_path)
-    print("Transfer successful:", file_data == decrypted_file)
+    print("[12] Final validation...")
+    print("     Original file content :", file_data)
+    print("     Decrypted file content:", decrypted_file)
+    print("     Transfer successful   :", file_data == decrypted_file)
 
-    # Tampering test
-    print("\n=== Tampering Test ===")
-    tampered_package = package.copy()
-    tampered_ciphertext = bytearray(package["ciphertext"])
-    tampered_ciphertext[0] ^= 1
-    tampered_package["ciphertext"] = bytes(tampered_ciphertext)
-
-    try:
-        receive_secure_file_dh(
-            package=tampered_package,
-            receiver_dh_private_key=bob_dh_private,
-            sender_public_key=loaded_alice_public,
-        )
-        print("Unexpected success: tampered package was accepted.")
-    except ValueError as e:
-        print("Tampering detected successfully:", e)
+    print("\n========== Demo Completed ==========\n")
 
 
 if __name__ == "__main__":

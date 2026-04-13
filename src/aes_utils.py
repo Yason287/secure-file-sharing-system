@@ -1,32 +1,36 @@
+"""
+AES Utilities Module
+
+This module handles:
+- AES-GCM file encryption
+
+
+In the current design:
+- The AES key is NOT generated separately for transport
+- It is derived from Diffie-Hellman (DH) + HKDF
+"""
+
 import os
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-AES_KEY_SIZE = 32
-NONCE_SIZE = 12
-
-
-def generate_aes_key() -> bytes:
-    """
-    Generates a random AES-256 key.
-
-    Returns:
-        bytes: A 32-byte key for AES-256.
-    """
-    return os.urandom(AES_KEY_SIZE)
+AES_KEY_SIZE = 32   # 32 bytes = AES-256
+NONCE_SIZE = 12     # Recommended nonce size for GCM
 
 
 def encrypt_file_bytes(file_data: bytes, key: bytes) -> tuple[bytes, bytes]:
     """
-    Encrypts file data using AES-GCM.
-
-    AES-GCM provides both confidentiality and integrity.
+    Encrypt file data using AES-GCM.
 
     Parameters:
-        file_data (bytes): File content to encrypt.
-        key (bytes): AES key (32 bytes for AES-256).
+    - file_data: raw file bytes
+    - key: 32-byte AES key derived from DH
 
     Returns:
-        tuple[bytes, bytes]: nonce and ciphertext
+    - tuple:
+        nonce, ciphertext
+
+    Security:
+    - AES-GCM provides confidentiality and integrity
     """
     if len(key) != AES_KEY_SIZE:
         raise ValueError("AES key must be 32 bytes for AES-256.")
@@ -39,15 +43,18 @@ def encrypt_file_bytes(file_data: bytes, key: bytes) -> tuple[bytes, bytes]:
 
 def decrypt_file_bytes(nonce: bytes, ciphertext: bytes, key: bytes) -> bytes:
     """
-    Decrypts AES-GCM encrypted file data.
+    Decrypt AES-GCM encrypted file data.
 
     Parameters:
-        nonce (bytes): Nonce used during encryption.
-        ciphertext (bytes): Encrypted file data.
-        key (bytes): AES key used for decryption.
+    - nonce: nonce used during encryption
+    - ciphertext: encrypted file bytes
+    - key: 32-byte AES key
 
     Returns:
-        bytes: Original decrypted file data
+    - original plaintext bytes
+
+    Raises:
+    - Exception if authentication fails or ciphertext is tampered with
     """
     if len(key) != AES_KEY_SIZE:
         raise ValueError("AES key must be 32 bytes for AES-256.")
