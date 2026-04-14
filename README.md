@@ -1,95 +1,106 @@
 # secure-file-sharing-system
 
-INSE 6110 course project: Secure File Sharing System using hybrid cryptography (RSA + AES + Digital Signatures).
+INSE 6110 course project: Secure File Sharing System using hybrid cryptography (Diffie-Hellman + AES + Digital Signatures).
 
+---
 
+## Overview
 
-##  Overview
+This project implements a secure file sharing system using modern hybrid cryptography:
 
-This project implements a secure file sharing system using hybrid cryptography:
-
-- **RSA** (asymmetric encryption) for secure key exchange and authentication  
-- **AES-GCM** (symmetric encryption) for efficient and secure file encryption  
-- **Digital signatures** for authenticity and integrity  
+- **Diffie-Hellman (DH)** for secure key exchange  
+- **AES-GCM (AES-256)** for efficient and authenticated file encryption  
+- **RSA Digital Signatures (RSA-PSS + SHA-256)** for authentication and integrity  
 
 The system ensures:
 - Confidentiality
 - Integrity
 - Authentication
+- Protection against tampering attacks
 
+---
 
+## Updated Cryptographic Design
 
-##  Hybrid Cryptography Workflow
+This project follows a **secure and realistic design**:
 
-1. Generate a random AES-256 key  
-2. Encrypt the file using AES-GCM  
-3. Encrypt the AES key using the receiver’s RSA public key  
-4. Create a digital signature over:
-   - nonce  
-   - ciphertext  
-   - encrypted AES key  
-5. Send:
-   - Encrypted file (ciphertext + nonce)  
-   - Encrypted AES key  
-   - Signature  
+- RSA is **NOT used for encryption anymore**
+- Diffie-Hellman is used to establish a shared secret
+- AES key is derived from DH using **HKDF-SHA256**
+- RSA is used **only for digital signatures**
 
-### Receiver side:
-- Verify the signature using the sender’s public key  
-- Decrypt AES key using RSA private key  
-- Decrypt file using AES  
+---
 
+## Secure Workflow (Step-by-Step)
 
+### Bob (Receiver)
 
-##  RSA Module
+1. Generates:
+   - RSA key pair (for signatures)
+   - DH key pair
 
-Responsible for:
-- Generating RSA key pairs (2048-bit)
-- Encrypting/decrypting AES keys (OAEP padding)
-- Digital signatures (RSA-PSS with SHA-256)
+2. Signs his **DH public key** using his RSA private key
 
+3. Sends to Alice:
+   - DH public key (serialized)
+   - Signature of DH public key
 
+---
 
-##  AES Module
+### Alice (Sender)
 
-- AES-256 encryption using **AES-GCM**
-- Provides:
-  - Confidentiality (encryption)
-  - Integrity (tampering detection)
+1. Verifies Bob’s DH public key signature  
+   → Prevents Man-in-the-Middle attacks  
 
+2. Generates an **ephemeral DH key pair**
 
+3. Computes shared secret:
+   - Using her private DH key
+   - And Bob’s public DH key
 
-##  Digital Signatures
+4. Derives AES-256 key using:
+   - HKDF with SHA-256
 
-- The sender signs the full encrypted package:
-  - nonce + ciphertext + encrypted AES key  
-- The receiver verifies the signature before decryption  
+5. Encrypts file using AES-GCM:
+   - Produces: ciphertext + nonce
 
-Ensures:
-- Data integrity
-- Sender authenticity
+6. Creates a digital signature over:
+   - ciphertext
+   - nonce
+   - her DH public key
 
+7. Sends:
+   - ciphertext
+   - nonce
+   - Alice’s DH public key
+   - signature
 
+---
 
-##  Testing
+### Bob (Receiver)
 
-The system was tested with multiple file types:
-- Text file (`sample.txt`)
-- JSON file (`data.json`)
+1. Verifies Alice’s signature  
 
-Results:
-- Decryption output matches original input  
-- Tampering detection successfully rejects modified data  
+2. Computes shared secret:
+   - Using his DH private key
+   - And Alice’s DH public key  
 
+3. Derives same AES key (HKDF)
 
+4. Decrypts file using AES-GCM  
 
-##  How to Run
+---
 
-1. Place a file inside the `input/` folder (e.g., `sample.txt` or `data.json`)  
+## Security Properties
 
-2. Select the test case in `main.py`:
-```python
-# ==== TEST CASE 1: TEXT FILE ====
-input_file_path = Path("input/sample.txt")
+- **Confidentiality** → AES-GCM encryption  
+- **Integrity** → AES-GCM authentication + RSA signature  
+- **Authentication** → RSA signatures  
+- **Forward secrecy** → Alice uses ephemeral DH keys  
+- **Tampering detection**:
+  - Modified ciphertext → detected
+  - Modified DH public key → detected  
 
-# ==== TEST CASE 2: JSON FILE ====
-# input_file_path = Path("input/data.json")
+---
+
+## Project Structure
